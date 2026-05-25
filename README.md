@@ -41,7 +41,6 @@ Textual matching across all designators is completely case-insensitive:
 |---|---|---|
 |*|	Global Wildcard	|Matches every single day of the year.|
 |MMM *|	Textual Month Wildcard	|Matches every day of that month. Supports 3-letter (jan), 4-letter (sept), and full names (september). |
-
 |MMM DD	|Exact Text Date	|Matches a specific day annually (e.g., may 25, Jan 01).|
 |M DD / M/DD / M-DD	|Exact Numeric Date	|Matches a specific day annually using numbers (e.g., 5 25, 5/25, 5-25).|
 |MMM DD YYYY / MMM DD, YYYY	|Year-Bound Absolute Date	|Strictly matches only on that specific day and year (e.g., may 25 2026).|
