@@ -42,49 +42,29 @@ Textual matching across all designators is completely case-insensitive:
 |*|	Global Wildcard	|Matches every single day of the year.|
 |MMM *|	Textual Month Wildcard	|Matches every day of that month. Supports 3-letter (jan), 4-letter (sept), and full names (september). |
 
-M * / M/* / M-*	Numeric Month Wildcard	Matches every day of that numeric month (e.g., 5 *, 5/*, 5-*).
-MMM DD	Exact Text Date	Matches a specific day annually (e.g., may 25, Jan 01).
-M DD / M/DD / M-DD	Exact Numeric Date	Matches a specific day annually using numbers (e.g., 5 25, 5/25, 5-25).
-MMM DD YYYY / MMM DD, YYYY	Year-Bound Absolute Date	Strictly matches only on that specific day and year (e.g., may 25 2026).
-sun, monday, tue, ...	Weekday Matcher	Fires selectively on the matching day of the week (short or full names).
-weekday / weekend	Macro Blocks	Matches Monday–Friday, or Saturday–Sunday respectively.
-Xth WDAY	Relative Ordinal Weekday	Calculates and matches the occurrence week of a weekday (e.g., 4th mon, 4th monday).
-new moon / full moon	Lunar Phase Markers	Employs an inline Conway-influenced synodic calculation window (\\\pm1 day tolerance).
-Usage & Core Pipelines
-Basic Execution
-Display matching entries scheduled for today:
-kal
+|MMM DD	|Exact Text Date	|Matches a specific day annually (e.g., may 25, Jan 01).|
+|M DD / M/DD / M-DD	|Exact Numeric Date	|Matches a specific day annually using numbers (e.g., 5 25, 5/25, 5-25).|
+|MMM DD YYYY / MMM DD, YYYY	|Year-Bound Absolute Date	|Strictly matches only on that specific day and year (e.g., may 25 2026).|
+|sun, monday, tue, ...	|Weekday Matcher	|Fires selectively on the matching day of the week (short or full names).|
+|weekday / weekend	|Macro Blocks	|Matches Monday–Friday, or Saturday–Sunday respectively.|
+|Xth WDAY	|Relative Ordinal Weekday	|Calculates and matches the occurrence week of a weekday (e.g., 4th mon, 4th monday).|
+|new moon / full moon	|Lunar Phase Markers	|Employs an inline Conway-influenced synodic calculation window (\\\pm1 day tolerance).|
 
-Chronological Sorting
-Because kal prints events in stream-order as they appear in the file, place your 24-hour time values at the beginning of your event descriptions and pipe standard output straight into sort:
-kal | sort
+## Usage & Core Pipelines
 
-Tag & Priority Filtering
-Extract specific priority targets or context tags downstream using grep:
-kal | sort | grep "PRIORITY_A"
-kal | sort | grep -i "todo"
+| Usage | Output | Invocation |
+|---|---|---|
+| Basic Execution| Display matching entries scheduled for today| kal |
+| Chronological Sorting | Because kal prints events in stream-order as they appear in the file, place your 24-hour time values at the beginning of your event descriptions and pipe standard output straight into sort | kal \| sort |
+| Tag & Priority Filtering | Extract specific priority targets or context tags downstream using grep | kal \| sort \| grep "PRIORITY_A" (OR) grep -i "todo" |
 
-Verbose Diagnostics
-To verify your file parsed properly and see comment streams:
-kal -v
+## Verbose Diagnostics
+To verify your file parsed properly and see comment streams,use kal -v
 
-Diagnostics & Exit Status
-• Exits 0 on successful execution.
-• Exits 1 if the HOME environment variable is missing or if the ~/.kalendar file cannot be opened.
-Author
+## Diagnostics & Exit Status
+
+- Exits 0 on successful execution.
+- Exits 1 if the HOME environment variable is missing or if the ~/.kalendar file cannot be opened.
+
+## Author
 William Orian Wear
-"""
-with open("README.md", "w") as f:
-f.write(readme_content)
-print("README.md generated successfully.")
-Your README.md file is ready
-[file-tag: code-generated-file-0-1779734221932842968]
-
-I have converted the manual page layout into a clean, well-structured markdown file. It explicitly details the streaming design architecture, includes a complete syntax matrix table for your supported date designators, provides a sample file configuration block, and explains the common pipeline invocations (`sort`, `grep`) that form your core command-line workflow.
-
-You can drop this directly into the root of your project directory:
-
-```bash
-git add README.md
-git commit -m "docs: add comprehensive project README.md"
-git push
