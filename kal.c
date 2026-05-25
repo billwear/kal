@@ -52,7 +52,7 @@ FILE* open_calendar_file(void) {
 }
 
 /* * Subroutine: match_designator
- * Current rules: * , MMM * , M * , M / * , M-* , MMM DD, M DD, M/DD, M-DD
+ * Current rules: * , MMM * , M * , M / * , M-* , MMM DD, M DD, M/DD, M-DD, MMM DD YYYY
  */
 int match_designator(const char *designator, struct tm *current_time) {
     // 1. Global daily wildcard
@@ -60,9 +60,10 @@ int match_designator(const char *designator, struct tm *current_time) {
         return 1;
     }
 
-    // Extract current time integers (tm_mon is 0-11, so add 1 for 1-12 tracking)
+    // Extract current time integers (tm_mon is 0-11, tm_year is years since 1900)
     int current_mon = current_time->tm_mon + 1;
     int current_mday = current_time->tm_mday;
+    int current_year = current_time->tm_year + 1900;
 
     // Create a local, lowercase copy of the designator for safe matching
     char clean_desig[DESIG_BUF_SIZE];
@@ -80,7 +81,7 @@ int match_designator(const char *designator, struct tm *current_time) {
         current_month_lower[j] = tolower((unsigned char)current_month_lower[j]);
     }
 
-    // 2. Month Wildcard check ("maybe *")
+    // 2. Month Wildcard check ("may *")
     char target_pattern[32];
     snprintf(target_pattern, sizeof(target_pattern), "%s *", current_month_lower);
     if (strcmp(clean_desig, target_pattern) == 0) {
@@ -107,7 +108,17 @@ int match_designator(const char *designator, struct tm *current_time) {
         return 1;
     }
 
-    // 5. Exact Numeric Date Matrix (e.g., "5 25", "5/25", "5-25")
+    // 5. NEW STEP: Exact Text Date with Year variations (e.g., "may 25 2026", "may 25, 2026")
+    char target_year_space[48];
+    char target_year_comma[48];
+    snprintf(target_year_space, sizeof(target_year_space), "%s %d %d", current_month_lower, current_mday, current_year);
+    snprintf(target_year_comma, sizeof(target_year_comma), "%s %d, %d", current_month_lower, current_mday, current_year);
+    
+    if (strcmp(clean_desig, target_year_space) == 0 || strcmp(clean_desig, target_year_comma) == 0) {
+        return 1;
+    }
+
+    // 6. Exact Numeric Date Matrix (e.g., "5 25", "5/25", "5-25")
     int m = 0, d = 0;
     if (sscanf(clean_desig, "%d/%d", &m, &d) == 2 ||
         sscanf(clean_desig, "%d-%d", &m, &d) == 2 ||
