@@ -1,0 +1,110 @@
+.TH KAL 1 "May 2026" "Linux User's Manual" "General Commands Manual"
+.SH NAME
+kal \- a lightweight, stateful, Unix-philosophical calendar filter
+.SH SYNOPSIS
+.B kal
+[\fB\-v\fR]
+.SH DESCRIPTION
+.B kal
+is a stream-oriented calendar utility that reads a user's calendar entries from
+.I ~/.kalendar
+and prints events that match the current system date context to standard output. 
+Following strict Unix philosophy, it allocates no internal event buffers, acting 
+as a pure pipeline filter. Advanced operations like chronological sorting, priority 
+organization, and tag filtering are intended to be handled downstream via standard 
+system utilities like
+.BR sort (1)
+and
+.BR grep (1).
+.PP
+The calendar header displaying the current date context is explicitly routed to standard error
+.RI ( stderr )
+to ensure that pipelining standard output to other text manipulation tools remains entirely clean.
+.SH OPTIONS
+.TP
+.B \-v
+Verbose mode. Prints a confirmation message to standard error upon successfully loading the 
+calendar file, and outputs text file comments exactly as they appear in the file stream.
+.SH FILE FORMAT
+The 
+.I ~/.kalendar
+file is processed line-by-line. Empty lines are ignored.
+.TP
+.B Comment Lines
+Lines beginning with a hash mark (\fB#\fR) are treated as comments. They are normally 
+silently skipped unless the verbose flag (\fB\-v\fR) is enabled.
+.TP
+.B Event Lines
+Standard entries must consist of a date or conditional designator string, followed 
+immediately by a literal tab character (\fB\\t\fR), followed by the event payload text. 
+Any trailing spaces or extra tabs on the designator side are automatically sanitized 
+and stripped before evaluation. Lines missing a tab delimiter are rejected.
+.TP
+.B Continuation Lines
+Lines beginning with a literal tab character (\fB\\t\fR) act as continuation elements. 
+They inherit the designator condition parsed from the most recent valid event line.
+.SH DESIGNATOR SYNTAX
+The designator component matches the current system date using the following variations (all textual matches are case-insensitive):
+.TP
+.B *
+Global daily wildcard. Matches every single day.
+.TP
+.BI MMM " *"
+Textual month wildcard (e.g., \fBmay *\fR, \fBSeptember *\fR). Matches every day of that month. Supports 3-letter, 4-letter (\fBsept\fR), and full month names.
+.TP
+.BI M " *" \fR, \fBMI/*\fR, \fBMI-*\fR
+Numeric month wildcards (e.g., \fB5 *\fR, \fB5/*\fR, \fB5-*\fR). Matches every day of that numeric month (1\-12).
+.TP
+.BI MMM " DD"
+Exact textual date match (e.g., \fBmay 25\fR, \fBJan 01\fR).
+.TP
+.BI M " DD" \fR, \fBMI/DD\fR, \fBMI-DD\fR
+Exact numeric date matrices (e.g., \fB5 25\fR, \fB5/25\fR, \fB5-25\fR).
+.TP
+.BI MMM " DD " YYYY\fR, \fBMMM " DD, " YYYY
+Year-bound absolute dates (e.g., \fBmay 25 2026\fR, \fBmay 25, 2026\fR). Strictly filters out matches if the system clock does not match the specified year.
+.TP
+.B sun\fR, \fBmonday\fR, \fBtue\fR, ...
+Day-of-week shorthand or full name matches. Fires selectively depending on the current day.
+.TP
+.B weekday\fR, \fBweekend\fR
+Macro blocks matching Monday through Friday, or Saturday and Sunday respectively.
+.TP
+.BI Xth " WDAY"
+Relative ordinal weekday occurrences (e.g., \fB4th mon\fR, \fB4th monday\fR). Calculates the relative occurrence week of the current month.
+.TP
+.B new moon\fR, \fBfull moon\fR
+Lunar phase markers. Employs an inline Conway-influenced synodic calculation window (\(+-1 day tolerance) to match current astronomical states.
+.SH EXAMPLES
+Display today's events:
+.EX
+.IP "" 4
+$ kal
+.EE
+.PP
+Sort today's scheduled events chronologically by passing output to standard sort:
+.EX
+.IP "" 4
+$ kal | sort
+.EE
+.PP
+Filter out high-priority tasks from the day's timeline:
+.EX
+.IP "" 4
+$ kal | sort | grep "PRIORITY_A"
+.EE
+.SH FILES
+.I ~/.kalendar
+.RS
+The default calendar database file containing tab-delimited designators and events.
+.SH DIAGNOSTICS
+Exits 0 on success. Exits 1 if the \fBHOME\fR environment variable is missing or if the 
+.I ~/.kalendar
+file cannot be opened.
+.SH AUTHORS
+William Orian Wear
+.SH SEE ALSO
+.BR sort (1),
+.BR grep (1),
+.BR strptime (3),
+.BR strftime (3)
