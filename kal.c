@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
+#include <math.h>
 
 #define PATH_BUF_SIZE 512
 #define LINE_BUF_SIZE 512
@@ -13,6 +14,7 @@
 FILE* open_calendar_file(void);
 int match_designator(const char *designator, struct tm *current_time);
 void read_calendar_stream(FILE *fp, int verbose);
+double calculate_moon_age(int year, int month, int day);
 
 // ============================================================================
 int main(int argc, char *argv[]) {
@@ -51,22 +53,43 @@ FILE* open_calendar_file(void) {
     return fopen(path, "r");
 }
 
+/* * Helper Subroutine: calculate_moon_age
+ * Employs a reliable astronomical approximation formula for the 21st century.
+ * Returns a value from 0.0 to 29.53 representing the current day of the lunar cycle.
+ */
+double calculate_moon_age(int year, int month, int day) {
+    if (month < 3) {
+        year--;
+        month += 12;
+    }
+    
+    // Calculate basic Julian-influenced day count approximation
+    long c = 365.25 * year;
+    long e = 30.6 * month;
+    
+    // Total elapsed days roughly scaled
+    double jd = c + e + day - 694039.09; 
+    jd /= 29.53059;                     // Divide by a standard synodic lunar month
+    
+    int b = (int)jd;
+    jd -= b;                             // Isolate the fractional component
+    
+    return jd * 29.53059;                // Scale back to day count age
+}
+
 /* * Subroutine: match_designator
- * Current rules: * , MMM * , M * , M / * , M-* , MMM DD, M DD, M/DD, M-DD, MMM DD YYYY, WDAYS, MACROS, ORDINALS
+ * Rules: * , MMM * , M * , M / * , M-* , MMM DD, M DD, M/DD, M-DD, MMM DD YYYY, WDAYS, MACROS, ORDINALS, LUNAR
  */
 int match_designator(const char *designator, struct tm *current_time) {
-    // 1. Global daily wildcard
     if (strcmp(designator, "*") == 0) {
         return 1;
     }
 
-    // Extract current time contexts
-    int current_mon = current_time->tm_mon + 1; // 1-12
+    int current_mon = current_time->tm_mon + 1; 
     int current_mday = current_time->tm_mday;
     int current_year = current_time->tm_year + 1900;
-    int wday = current_time->tm_wday;           // 0=Sun, 1=Mon, ..., 6=Sat
+    int wday = current_time->tm_wday;           
 
-    // Create a local, lowercase copy of the designator for safe matching
     char clean_desig[DESIG_BUF_SIZE];
     int i = 0;
     while (designator[i] && i < (DESIG_BUF_SIZE - 1)) {
@@ -75,7 +98,7 @@ int match_designator(const char *designator, struct tm *current_time) {
     }
     clean_desig[i] = '\0';
 
-    // 2. Specific Day-of-the-Week named patterns
+    // 1. Specific Day-of-the-Week named patterns
     if (strcmp(clean_desig, "sun") == 0 || strcmp(clean_desig, "sunday") == 0)    return (wday == 0);
     if (strcmp(clean_desig, "mon") == 0 || strcmp(clean_desig, "monday") == 0)    return (wday == 1);
     if (strcmp(clean_desig, "tue") == 0 || strcmp(clean_desig, "tuesday") == 0)   return (wday == 2);
@@ -84,20 +107,16 @@ int match_designator(const char *designator, struct tm *current_time) {
     if (strcmp(clean_desig, "fri") == 0 || strcmp(clean_desig, "friday") == 0)    return (wday == 5);
     if (strcmp(clean_desig, "sat") == 0 || strcmp(clean_desig, "saturday") == 0)  return (wday == 6);
 
-    // 3. Compound Macro-Days
-    if (strcmp(clean_desig, "weekday") == 0) return (wday >= 1 && wday <= 5); // Mon-Fri
-    if (strcmp(clean_desig, "weekend") == 0) return (wday == 0 || wday == 6); // Sun or Sat
+    // 2. Compound Macro-Days
+    if (strcmp(clean_desig, "weekday") == 0) return (wday >= 1 && wday <= 5); 
+    if (strcmp(clean_desig, "weekend") == 0) return (wday == 0 || wday == 6); 
 
-    // 4. NEW STEP: Relative Ordinal Weekdays (e.g., "4th mon", "4th monday")
+    // 3. Relative Ordinal Weekdays (e.g., "4th mon")
     int parsed_ordinal = 0;
     char parsed_suffix[4] = {0};
     char parsed_wday[32] = {0};
-    
-    // Attempt parsing something like "4th mon" or "4th monday"
-    // %1d grabs the digit, %2s grabs "th"/"st"/"nd"/"rd", and %31s grabs the day string
     if (sscanf(clean_desig, "%1d%2s %31s", &parsed_ordinal, parsed_suffix, parsed_wday) == 3) {
         int today_ordinal = ((current_mday - 1) / 7) + 1;
-        
         if (parsed_ordinal == today_ordinal) {
             if ((wday == 0 && (strcmp(parsed_wday, "sun") == 0 || strcmp(parsed_wday, "sunday") == 0)) ||
                 (wday == 1 && (strcmp(parsed_wday, "mon") == 0 || strcmp(parsed_wday, "monday") == 0)) ||
@@ -111,10 +130,22 @@ int match_designator(const char *designator, struct tm *current_time) {
         }
     }
 
-    // 5. Pure Numeric Month Wildcards (e.g., "5 *", "5/*", "5-*")
+    // 4. NEW STEP: Lunar Moon Phase matching
+    if (strcmp(clean_desig, "new moon") == 0 || strcmp(clean_desig, "full moon") == 0) {
+        double age = calculate_moon_age(current_year, current_mon, current_mday);
+        
+        // A 1-day window tolerance handles local time zones cleanly
+        if (strcmp(clean_desig, "new moon") == 0) {
+            return (age < 1.0 || age > 28.53);
+        }
+        if (strcmp(clean_desig, "full moon") == 0) {
+            return (age >= 13.8 && age <= 15.8);
+        }
+    }
+
+    // 5. Pure Numeric Month Wildcards (e.g., "5 *")
     int parsed_num_month = 0;
     char wildcard_char = '\0';
-
     if (sscanf(clean_desig, "%d *", &parsed_num_month) == 1) {
         if (parsed_num_month == current_mon) return 1;
     }
@@ -125,7 +156,7 @@ int match_designator(const char *designator, struct tm *current_time) {
         if (parsed_num_month == current_mon) return 1;
     }
 
-    // 6. Exact Pure Numeric Dates (e.g., "5 25", "5/25", "5-25")
+    // 6. Exact Pure Numeric Dates (e.g., "5 25")
     int m = 0, d = 0;
     if (sscanf(clean_desig, "%d/%d", &m, &d) == 2 ||
         sscanf(clean_desig, "%d-%d", &m, &d) == 2 ||
@@ -135,7 +166,7 @@ int match_designator(const char *designator, struct tm *current_time) {
         }
     }
 
-    // 7. Textual Month Parsing Rules (e.g., "may *", "September 25", "sept 25, 2026")
+    // 7. Textual Month Parsing Rules (strptime)
     char month_token[32];
     char remainder[32] = {0};
     int scan_count = sscanf(clean_desig, "%31s %31[^\n]", month_token, remainder);
@@ -152,7 +183,7 @@ int match_designator(const char *designator, struct tm *current_time) {
         }
 
         if (strptime_result != NULL && *strptime_result == '\0') {
-            int parsed_mon = parsed_tm.tm_mon + 1; // 1-12
+            int parsed_mon = parsed_tm.tm_mon + 1; 
 
             if (scan_count == 2 && strcmp(remainder, "*") == 0) {
                 if (parsed_mon == current_mon) return 1;
